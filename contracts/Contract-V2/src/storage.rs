@@ -20,6 +20,9 @@ pub enum DataKeyV2 {
     // -- Stream storage ------------------------------------------
     /// Individual stream record, keyed by stream ID.
     Stream(u64),
+
+    // -- Paused state --------------------------------------------
+    Paused,
 }
 
 /// Global stream counter — stored under a short Symbol to match
@@ -77,6 +80,21 @@ pub fn set_stream(env: &Env, stream_id: u64, stream: &StreamV2) {
 pub fn get_stream(env: &Env, stream_id: u64) -> Option<StreamV2> {
     bump_instance(env);
     env.storage().instance().get(&DataKeyV2::Stream(stream_id))
+}
+
+// ----------------------------------------------------------------
+// instance() helpers — Paused
+// ----------------------------------------------------------------
+
+/// Returns true if the contract is currently paused.
+pub fn is_paused(env: &Env) -> bool {
+    env.storage().instance().get(&DataKeyV2::Paused).unwrap_or(false)
+}
+
+/// Sets the contract's paused state.
+pub fn set_paused(env: &Env, paused: bool) {
+    env.storage().instance().set(&DataKeyV2::Paused, &paused);
+    bump_instance(env);
 }
 
 // ----------------------------------------------------------------

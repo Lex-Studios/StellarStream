@@ -93,3 +93,19 @@ pub struct PermitStreamCreatedEvent {
     pub nonce: u64,
     pub timestamp: u64,
 }
+
+/// Emitted when the contract is paused by the admin.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct ContractPausedEvent {
+    pub admin: Address,
+    pub timestamp: u64,
+}
+
+/// Emitted when the contract is unpaused by the admin.
+#[contracttype]
+#[derive(Clone, Debug)]
+pub struct ContractUnpausedEvent {
+    pub admin: Address,
+    pub timestamp: u64,
+}

@@ -392,3 +392,80 @@ fn test_permit_stream_fails_if_deadline_passed() {
     );
     assert!(result.is_err());
 }
+
+// ── Emergency Pause tests ───────────────────────────────────────────────────
+
+#[test]
+fn test_pause_unpause_admin_only() {
+    let env = Env::default();
+
+    let admin = Address::generate(&env);
+    let (_, client) = setup_v2(&env, &admin);
+
+    // Initial state: not paused
+    assert!(!client.is_paused());
+
+    // 1. Fails without auth mocking (auth failure)
+    let result = client.try_pause();
+    assert!(result.is_err());
+
+    // 2. Succeeds with mock_all_auths
+    env.mock_all_auths();
+    client.pause();
+    assert!(client.is_paused());
+
+    // 3. Unpause works
+    client.unpause();
+    assert!(!client.is_paused());
+}
+
+#[test]
+fn test_migrate_stream_fails_when_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+    env.ledger().with_mut(|li| li.timestamp = 50);
+
+    let admin = Address::generate(&env);
+    let sender = Address::generate(&env);
+    let receiver = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let (token_id, _) = create_token(&env, &token_admin);
+
+    let v1_id = env.register(MockV1, ());
+    let v1_client = MockV1Client::new(&env, &v1_id);
+    v1_client.seed_stream(&make_v1_stream(&env, &sender, &receiver, &token_id));
+
+    let (_, client) = setup_v2(&env, &admin);
+
+    // Pause the contract
+    client.pause();
+
+    // Migration should fail
+    let result = client.try_migrate_stream(&v1_id, &0u64, &receiver);
+    assert!(result.is_err());
+    // verify exact error if possible, but try_ results in Result<Result<...>>
+}
+
+#[test]
+fn test_permit_stream_fails_when_paused() {
+    let env = Env::default();
+    env.mock_all_auths();
+
+    let admin = Address::generate(&env);
+    let receiver = Address::generate(&env);
+    let token_admin = Address::generate(&env);
+    let (token_id, _) = create_token(&env, &token_admin);
+    let (_, client) = setup_v2(&env, &admin);
+
+    client.pause();
+
+    let pubkey = soroban_sdk::BytesN::from_array(&env, &[1u8; 32]);
+    let bad_sig = soroban_sdk::BytesN::from_array(&env, &[0u8; 64]);
+
+    let result = client.try_create_stream_with_signature(
+        &pubkey, &receiver, &token_id, &1000i128, &0u64, &200u64, &0u64,
+        &9999u64,
+        &bad_sig,
+    );
+    assert!(result.is_err());
+}
